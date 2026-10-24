@@ -1,6 +1,7 @@
 package configs
 
 type Network struct {
+	BBS                  BBSNetwork        `yaml:"BBS"`
 	MaxTelnetConnections ConfigInt         `yaml:"MaxTelnetConnections"` // Maximum number of telnet connections to accept
 	TelnetPort           ConfigSliceString `yaml:"TelnetPort"`           // One or more Ports used to accept telnet connections
 	LocalPort            ConfigInt         `yaml:"LocalPort"`            // Port used for admin connections, localhost only

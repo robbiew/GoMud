@@ -518,6 +518,19 @@ Translation:
 #
 ################################################################################
 Network:
+  # Dedicated bbsmud TLS relay listener. Restart to change these settings.
+  # CredentialsFile is private JSON: {"bbs-id":["32-byte-or-longer-secret"]}.
+  BBS:
+    Host: "127.0.0.1"
+    Port: 0
+    CertificateFile: ""
+    KeyFile: ""
+    CredentialsFile: ""
+    HandshakeSeconds: 10
+    MaxConnections: 50
+    MaxConnectionsPerBBS: 10
+    MaxSessionMinutes: 60
+    AttemptsPerMinute: 30
   # - MaxTelnetConnections -
   #   The maximum number of telnet connections the server will accept.
   MaxTelnetConnections: 100

@@ -30,6 +30,7 @@ var (
 )
 
 type UserRecord struct {
+	BBS            *BBSIdentity          `yaml:"bbs,omitempty"`
 	UserId         int                   `yaml:"userid"`
 	Role           string                `yaml:"role"`                  // user, mod, or admin
 	Permissions    []string              `yaml:"permissions,omitempty"` // Discrete permissions for mod role
@@ -89,6 +90,9 @@ func (u *UserRecord) ClientSettings() connections.ClientSettings {
 }
 
 func (u *UserRecord) HasPlaintextPassword() bool {
+	if u.BBS != nil {
+		return false
+	}
 	// bcrypt check
 	if strings.HasPrefix(u.Password, "$2a$") || strings.HasPrefix(u.Password, "$2b$") {
 		return false
@@ -101,6 +105,9 @@ func (u *UserRecord) HasPlaintextPassword() bool {
 }
 
 func (u *UserRecord) PasswordMatches(input string) bool {
+	if u.BBS != nil {
+		return false
+	}
 
 	// Try bcrypt first (new format).
 	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(input)); err == nil {
@@ -656,6 +663,8 @@ func (u *UserRecord) GetOnlineInfo() OnlineInfo {
 			connType = `websocket`
 		} else if cd.IsSSH() {
 			connType = `ssh`
+		} else if cd.ConnType() == connections.ConnBBS {
+			connType = `bbs`
 		}
 	}
 

@@ -26,6 +26,9 @@ func (c *connectionsCopyoverContributor) CopyoverSave(enc *copyover.Encoder) err
 	}
 
 	for id, cd := range netConnections {
+		if cd.ConnType() == ConnBBS {
+			continue
+		}
 		if cd.IsWebSocket() {
 			if IssueWebSocketReconnectToken != nil {
 				if token, err := IssueWebSocketReconnectToken(id); err == nil {

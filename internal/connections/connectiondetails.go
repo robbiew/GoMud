@@ -30,6 +30,7 @@ type ConnType uint32
 const (
 	ConnHuman ConnType = 0
 	ConnAI    ConnType = 1
+	ConnBBS   ConnType = 2
 )
 
 // ansiStripRegexp matches SGR (color/style) escape sequences.
@@ -266,7 +267,12 @@ func (cd *ConnectionDetails) Write(p []byte) (n int, err error) {
 		return len(p), nil
 	}
 
-	p = []byte(strings.ReplaceAll(string(p), "\n", "\r\n"))
+	if cd.ConnType() == ConnBBS {
+		// Engine text may already contain CRLF (e.g. keyboard echo). Normalize once.
+		p = []byte(strings.ReplaceAll(strings.ReplaceAll(string(p), "\r\n", "\n"), "\n", "\r\n"))
+	} else {
+		p = []byte(strings.ReplaceAll(string(p), "\n", "\r\n"))
+	}
 
 	if len(p) == 0 {
 		return 0, nil

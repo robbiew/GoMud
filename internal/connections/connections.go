@@ -299,6 +299,33 @@ func ActiveConnectionCount() int {
 	return len(netConnections)
 }
 
+// ActiveNonBBSConnectionCount preserves the existing Telnet pool accounting
+// while excluding the dedicated BBS pool in one synchronized snapshot.
+func ActiveNonBBSConnectionCount() int {
+	lock.RLock()
+	defer lock.RUnlock()
+	count := 0
+	for _, cd := range netConnections {
+		if cd.ConnType() != ConnBBS {
+			count++
+		}
+	}
+	return count
+}
+
+// ActiveBBSConnectionCount excludes the independent BBS pool from Telnet limits.
+func ActiveBBSConnectionCount() int {
+	lock.RLock()
+	defer lock.RUnlock()
+	count := 0
+	for _, cd := range netConnections {
+		if cd.ConnType() == ConnBBS {
+			count++
+		}
+	}
+	return count
+}
+
 // ActiveAIConnectionCount returns the number of currently-registered AI connections.
 func ActiveAIConnectionCount() int {
 	lock.RLock()

@@ -34,6 +34,9 @@ func (u *usersCopyoverContributor) CopyoverSave(enc *copyover.Encoder) error {
 	state := usersState{}
 
 	for userId, user := range userManager.Users {
+		if user.BBS != nil {
+			continue
+		}
 		connId := userManager.UserConnections[userId]
 		isLinkDead := false
 		linkDeadTurn := uint64(0)

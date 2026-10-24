@@ -39,6 +39,9 @@ func (wi WorldInput) Id() int {
 }
 
 type World struct {
+	bbsTasks           chan func()
+	bbsDone            chan struct{}
+	bbsSessions        map[connections.ConnectionId]*bbsSession
 	worldInput         chan WorldInput
 	ignoreInput        map[int]uint64 // userid->turn set to ignore
 	enterWorldUserId   chan [2]int
@@ -54,6 +57,9 @@ type World struct {
 func NewWorld(osSignalChan chan os.Signal) *World {
 
 	w := &World{
+		bbsTasks:           make(chan func(), 128),
+		bbsDone:            make(chan struct{}),
+		bbsSessions:        make(map[connections.ConnectionId]*bbsSession),
 		worldInput:         make(chan WorldInput),
 		ignoreInput:        make(map[int]uint64),
 		enterWorldUserId:   make(chan [2]int),
@@ -320,6 +326,7 @@ const (
 )
 
 func (w *World) MainWorker(shutdown chan bool, wg *sync.WaitGroup) {
+	defer close(w.bbsDone)
 
 	wg.Add(1)
 
@@ -347,6 +354,11 @@ loop:
 		// such as the webserver
 
 		select {
+		case task := <-w.bbsTasks:
+			util.LockMud()
+			task()
+			util.UnlockMud()
+
 		case <-shutdown:
 
 			mudlog.Warn(`MainWorker`, `action`, `shutdown received`)

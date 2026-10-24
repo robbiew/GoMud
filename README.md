@@ -84,6 +84,10 @@ Colorization is handled through extensive use of my [github.com/GoMudEngine/ansi
 
 ---
 
+## BBS door clients
+
+This fork adds an opt-in authenticated TLS listener for [bbsmud](https://github.com/robbiew/bbsmud) door clients. See [BBS configuration and deployment](docs/bbs.md) for credentials, character identities, session expiry, and validation. Standard Telnet, WebSocket, and SSH login remain available.
+
 ## Getting Started
 
 ### Requirements

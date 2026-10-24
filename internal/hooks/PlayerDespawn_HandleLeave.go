@@ -46,26 +46,23 @@ func HandleLeave(e events.Event) events.ListenerReturn {
 		currentParty.Leave(evt.UserId)
 	}
 
-	for _, mobInstId := range room.GetMobs(rooms.FindCharmed) {
-		if mob := mobs.GetInstance(mobInstId); mob != nil {
-			if mob.Character.IsCharmed(evt.UserId) {
-				mob.Character.Charmed.Expire()
+	if room != nil {
+		for _, mobInstId := range room.GetMobs(rooms.FindCharmed) {
+			if mob := mobs.GetInstance(mobInstId); mob != nil {
+				if mob.Character.IsCharmed(evt.UserId) {
+					mob.Character.Charmed.Expire()
+				}
 			}
 		}
-	}
 
-	if _, ok := room.RemovePlayer(evt.UserId); ok {
-		tplTxt, _ := templates.Process("player-despawn", user.Character.Name)
-		room.SendText(tplTxt)
+		if _, ok := room.RemovePlayer(evt.UserId); ok {
+			tplTxt, _ := templates.Process("player-despawn", user.Character.Name)
+			room.SendText(tplTxt)
+		}
 	}
 
 	tplTxt, _ := templates.Process("goodbye", nil, evt.UserId)
 	connections.SendTo([]byte(templates.AnsiParse(tplTxt)), connId)
-
-	if err := users.LogOutUserByConnectionId(connId); err != nil {
-		mudlog.Error("Log Out Error", "connectionId", connId, "error", err)
-	}
-	connections.Remove(connId)
 
 	specialRooms := configs.GetSpecialRoomsConfig()
 	testRoomId := rooms.GetOriginalRoom(user.Character.RoomId)
@@ -77,7 +74,10 @@ func HandleLeave(e events.Event) events.ListenerReturn {
 		}
 	}
 
-	users.SaveUser(*user)
+	if err := users.LogOutUserByConnectionId(connId); err != nil {
+		mudlog.Error("Log Out Error", "connectionId", connId, "error", err)
+	}
+	connections.Remove(connId)
 
 	return events.Continue
 }

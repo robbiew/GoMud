@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/GoMudEngine/GoMud/internal/audio"
+	"github.com/GoMudEngine/GoMud/internal/bbs"
 	"github.com/GoMudEngine/GoMud/internal/buffs"
 	"github.com/GoMudEngine/GoMud/internal/characters"
 	"github.com/GoMudEngine/GoMud/internal/colorpatterns"
@@ -72,9 +73,11 @@ var (
 	sigChan            = make(chan os.Signal, 1)
 	workerShutdownChan = make(chan bool, 1)
 
-	serverAlive atomic.Bool
+	serverAlive  atomic.Bool
+	shuttingDown atomic.Bool
 
 	worldManager = NewWorld(sigChan)
+	bbsListener  atomic.Pointer[bbs.Server]
 
 	// Start a pool of worker goroutines
 	wg sync.WaitGroup
@@ -130,6 +133,10 @@ func main() {
 
 	configs.ReloadConfig()
 	c := configs.GetConfig()
+	if err := c.Network.BBS.Check(); err != nil {
+		mudlog.Error("BBS configuration", "error", err)
+		os.Exit(1)
+	}
 
 	lastKnownVersion, err := version.Parse(string(configs.GetServerConfig().CurrentVersion))
 	if err != nil {
@@ -332,6 +339,11 @@ func main() {
 	web.Listen(&wg, HandleWebSocketConnection)
 
 	allServerListeners := make([]net.Listener, 0, len(c.Network.TelnetPort))
+	if err := startBBSListener(c.Network.BBS); err != nil {
+		mudlog.Error("BBS listener", "error", err)
+		os.Exit(1)
+	}
+
 	for _, port := range c.Network.TelnetPort {
 		if p, err := strconv.Atoi(port); err == nil && p > 0 {
 			if s := TelnetListenOnPort(``, p, &wg, int(c.Network.MaxTelnetConnections), connections.ConnHuman); s != nil {
@@ -412,6 +424,7 @@ func main() {
 		Text: templates.AnsiParse(tplTxt),
 	})
 
+	shuttingDown.Store(true)
 	serverAlive.Store(false) // immediately stop processing incoming connections
 
 	util.SaveRoundCount(util.FilePath(c.FilePaths.DataFiles.String() + `/` + util.RoundCountFilename))
@@ -424,6 +437,11 @@ func main() {
 		"LifetimeDisconnects", totalDisconnections,
 		"ActiveConnections", totalConnections-totalDisconnections,
 	)
+
+	// Drain BBS handlers while the world worker can still save/despawn users.
+	if listener := bbsListener.Load(); listener != nil {
+		listener.Close()
+	}
 
 	// cleanup all connections
 	connections.Cleanup()
@@ -1350,7 +1368,7 @@ func TelnetListenOnPort(hostname string, portNum int, wg *sync.WaitGroup, maxCon
 			}
 
 			if maxConnections > 0 {
-				activeCount := connections.ActiveConnectionCount()
+				activeCount := connections.ActiveNonBBSConnectionCount()
 				if connType == connections.ConnAI {
 					activeCount = connections.ActiveAIConnectionCount()
 				}

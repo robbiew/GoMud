@@ -384,7 +384,9 @@ func LogOutUserByConnectionId(connectionId connections.ConnectionId) error {
 		// Make sure the user data is saved to a file.
 		if u != nil {
 			u.Character.Validate()
-			SaveUser(*u)
+			if err := SaveUser(*u); err != nil {
+				mudlog.Error("Logout save failed", "userId", u.UserId, "error", err)
+			}
 
 			delete(userManager.Users, u.UserId)
 			delete(userManager.Usernames, u.Username)
@@ -401,7 +403,11 @@ func LogOutUserByConnectionId(connectionId connections.ConnectionId) error {
 }
 
 // First time creating a user.
+var createUserMu sync.Mutex
+
 func CreateUser(u *UserRecord) error {
+	createUserMu.Lock()
+	defer createUserMu.Unlock()
 
 	if err := ValidateName(u.Username); err != nil {
 		return errors.New("that username is not allowed: " + err.Error())
@@ -411,9 +417,14 @@ func CreateUser(u *UserRecord) error {
 	u.Role = RoleUser
 
 	idx := GetUserIndex()
-	idx.AddUser(u.UserId, u.Username)
-
 	if err := SaveUser(*u); err != nil {
+		return err
+	}
+	if err := idx.AddUser(u.UserId, u.Username); err != nil {
+		// The YAML record is durable; rebuild the derived index for a safe retry.
+		if rebuildErr := idx.Rebuild(); rebuildErr != nil {
+			return fmt.Errorf("index user: %v; rebuild: %w", err, rebuildErr)
+		}
 		return err
 	}
 
